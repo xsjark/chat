@@ -34,7 +34,7 @@ app.get('/api/chat/:borderName', (req, res) => {
     }
     
     if (!chatHistories[borderName]) {
-        return res.status(404).json({ error: 'Chat room not found' });
+        chatHistories[borderName] = [];
     }
 
     const result = {
