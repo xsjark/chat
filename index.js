@@ -3,12 +3,34 @@ const axios = require('axios');
 const dayjs = require('dayjs');
 const utc = require('dayjs/plugin/utc');
 const timezone = require('dayjs/plugin/timezone');
+const http = require('http');
+const WebSocket = require('ws');
 
 const app = express();
 const port = 3000;
 
 // Middleware to parse JSON bodies
 app.use(express.json());
+
+// Websocket
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
+const clients = new Map();
+
+wss.on('connection', (ws) => {
+    console.log('New WebSocket connection');
+
+    ws.on('message', (message) => {
+        const data = JSON.parse(message);
+        if (data.type === 'subscribe') {
+            clients.set(ws, data.borderName);
+        }
+    });
+
+    ws.on('close', () => {
+        clients.delete(ws);
+    });
+});
 
 // Extend dayjs with UTC and Timezone plugins
 dayjs.extend(utc);
@@ -39,7 +61,6 @@ app.get('/api/chat/:borderName', (req, res) => {
 
     const result = {
         chat: chatHistories[borderName],
-        userCount: Object.keys(users).length
     };
 
     res.status(200).json(result);
@@ -87,12 +108,28 @@ app.post('/api/chat/:borderName', async (req, res) => {
             chatHistories[borderName] = chatHistories[borderName].slice(-1000);
         }
 
+        broadcastUpdate(borderName);
+
         res.status(201).json({ message: 'Message sent successfully' });
     } catch (error) {
         console.error('Error in chat post:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+
+function broadcastUpdate(borderName) {
+    const update = {
+        type: 'update',
+        borderName: borderName,
+        chat: chatHistories[borderName]
+    };
+
+    wss.clients.forEach((client) => {
+        if (clients.get(client) === borderName) {
+            client.send(JSON.stringify(update));
+        }
+    });
+}
 
 // Might be a good idea to install a proper sanitizer
 function sanitizeHtml(input) {
