@@ -9,11 +9,13 @@ const WebSocket = require('ws');
 const app = express();
 const port = 3000;
 
+// Create server
+const server = http.createServer(app);
+
 // Middleware to parse JSON bodies
 app.use(express.json());
 
-// Websocket
-const server = http.createServer(app);
+// Setup WebSocket server
 const wss = new WebSocket.Server({ server });
 const clients = new Map();
 
@@ -39,14 +41,12 @@ dayjs.extend(timezone);
 const formatTime = () => {
     return `@ ${dayjs().tz('Asia/Brunei').format('HH:mm')}`;
 };
-const users = {
-    // 'ridha': 10
-}; // Active users
-const chatHistories = {
-    // 'test': ['hello']
-}; // Store chat histories for each border
+
+const users = {};
+const chatHistories = {};
 const activeUsernames = new Set();
 const bannedDevices = new Set();
+
 // Chat for mobile
 app.get('/api/chat/:borderName', (req, res) => {
     const { borderName } = req.params;
@@ -77,8 +77,6 @@ app.post('/api/chat/:borderName', async (req, res) => {
         if (!deviceId || typeof deviceId !== 'string') {
             return res.status(400).json({ error: 'Invalid or missing deviceId' });
         }
-
-        // TODO: Check if border name exists in the borders object
 
         if (message.length > 50) {
             return res.status(400).json({ error: 'Message too long' });
@@ -131,13 +129,10 @@ function broadcastUpdate(borderName) {
     });
 }
 
-// Might be a good idea to install a proper sanitizer
 function sanitizeHtml(input) {
     return input.replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-
-// Modified username generation function
 async function generateUsername(deviceIdentifier) {
     try {
         let username;
@@ -168,7 +163,8 @@ async function generateUsername(deviceIdentifier) {
         return fallback;
     }
 }
+
 // Start the server
-app.listen(port, () => {
+server.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
 });
