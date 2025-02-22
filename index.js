@@ -17,6 +17,7 @@ const io = socketIo(server);
 
 // Middleware to parse JSON bodies
 app.use(express.json());
+app.use(express.urlencoded({ extended: true })); // Parse URL-encoded requests
 
 // Extend dayjs with UTC and Timezone plugins
 dayjs.extend(utc);
@@ -51,6 +52,7 @@ app.get('/api/chat/:borderName', (req, res) => {
 });
 
 app.post('/api/chat/:borderName', async (req, res) => {
+    console.log("Route /api/chat/:borderName called with:", req.params, req.body);
     try {
         const { borderName } = req.params;
         const { message, deviceId } = req.body;
