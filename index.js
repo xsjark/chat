@@ -35,11 +35,11 @@ const bannedDevices = new Set();
 // Chat for mobile
 app.get('/api/chat/:borderName', (req, res) => {
     const { borderName } = req.params;
-    
+
     if (!borderName) {
         return res.status(400).json({ error: 'Border name is required' });
     }
-    
+
     if (!chatHistories[borderName]) {
         chatHistories[borderName] = [];
     }
@@ -56,51 +56,61 @@ app.post('/api/chat/:borderName', async (req, res) => {
     try {
         const { borderName } = req.params;
         const { message, deviceId } = req.body;
-  
+
         if (!message || typeof message !== 'string' || message.trim().length === 0) {
             return res.status(400).json({ error: 'Invalid or missing message' });
         }
         if (!deviceId || typeof deviceId !== 'string') {
             return res.status(400).json({ error: 'Invalid or missing deviceId' });
         }
-  
+
         if (message.length > 50) {
             return res.status(400).json({ error: 'Message too long' });
         }
-  
+
         if (bannedDevices.has(deviceId)) {
             return res.status(403).json({ error: 'You have been banned from the chat' });
         }
-  
+
         let username = users[deviceId];
         if (!username) {
             username = await generateUsername(deviceId);
             users[deviceId] = username;
             activeUsernames.add(username);
         }
-  
+
         if (!chatHistories[borderName]) {
             chatHistories[borderName] = [];
         }
-  
+
         const sanitizedMessage = sanitizeHtml(message);
         const timestampedMessage = `${username} ${formatTime()}: ${sanitizedMessage}`;
-  
+
         chatHistories[borderName].push(timestampedMessage);
-  
+
         if (chatHistories[borderName].length > 100) {
-            chatHistories[borderName] = chatHistories[borderName].slice(-1000);
+            chatHistories[borderName] = chatHistories[borderName].slice(-100);
         }
-  
-        const namespace = io.of(`/${borderName}`);
-        namespace.emit('chat message', timestampedMessage);
+
+        io.to(borderName).emit('chat message', timestampedMessage);
         console.log(`[SERVER] Chat message sent to ${borderName}`);
-  
+
         res.status(201).json({ message: 'Message sent successfully' });
     } catch (error) {
         console.error('Error in chat post:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
+});
+
+io.on('connection', (socket) => {
+    console.log('New client connected');
+
+    socket.on('join', (borderName) => {
+        socket.join(borderName);
+        console.log(`Client joined room: ${borderName}`);
+    });
+
+    socket.on('disconnect', () => console.log('Client disconnected'));
 });
 
 function sanitizeHtml(input) {
